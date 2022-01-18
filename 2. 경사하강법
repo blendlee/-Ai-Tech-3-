@@ -97,3 +97,65 @@ for i in range(학습횟수):
 확률적 경사하강법은 위와 같이 경사하강법을 진행하지만, minibatch라는 적당량의 일부 데이터 만으로 경사하강법을 진행하는것이다.
 매 계산마다 미니배치를 다르게 잡는다면 방향을 함수의 볼록점에 도달하였을때 탈출할 수 있다는 장점을 가지고 있다.
 따라서 미니배치를 다르게 잡아 회귀를 시킨다면 우리가 원하는 극소점으로 회귀를 시킬수 있다.
+
+
+
+경사하강을 이용한 선형회귀법 소스코드
+
+
+나만의 프로세스
+
+1. error를 먼저 구해준다.
+2. w,b에 대한 식을 써준다.
+3. gradient 식을 구한다.
+ -gradient 구하는 과정에서 행렬의 내적과 곱 헷갈리지 않기!!
+ -error와 train_x의 크기 파악 중요!!!!!
+ -이 때 코드에서 정의된 error는 항상 행렬임에 주의!!!!
+
+-------------------------------------------------------------
+w, b = 0.0, 0.0
+
+lr_rate = 1e-2
+n_data = len(train_x)
+errors = []
+
+for i in range(100):
+    _y =w*train_x+b
+    error= train_y-_y
+
+    # gradient식
+    gradient_w = (-2*error@train_x)/n_data
+    gradient_b = (-2*np.sum(error))/n_data
+
+    # w, b 업데이트
+    w = w- lr_rate*gradient_w
+    b = b- lr_rate*gradient_b
+    
+    #error의 norm 업데이트
+    error_norm = np.sqrt(np.sum((train_y-_y)**2))
+    errors.append(error_norm)
+
+print("w : {} / b : {} / error : {}".format(w, b, error))
+
+-------------------------------------------------------------
+b-beta_gd.pop()
+bias=[b]*len(train_x)
+
+for t in range(5000):
+
+  # 1.error 정의
+  error=train_y-(train_x@beta_gd + bias)
+  
+  # 3.gradient 정의
+  gradient_w= (-2/len(train_x))*(np.transpose(train_x)@error)
+  gradient_b= (-2/len(train_x))*np.sum(error)
+
+  # 2.w,b 정의
+  beta_gd= beta_gd - lr_rate*gradient_w
+  b=b - lr_rate*gradient_b
+  bias=[b]*len(train_x)
+
+
+print("After gradient descent, beta_gd : {} and bias : {}".format(beta_gd,bias))
+
+
