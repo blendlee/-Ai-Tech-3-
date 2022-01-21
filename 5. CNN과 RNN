@@ -1,0 +1,141 @@
+
+
+[CNN]
+
+CNN은 Convolution Neural Network의 약자이다.
+
+먼저, Neural Network는 3.딥러닝의 이해 부분에서 충분히 다뤘다.
+간략하게 설명해보자면 우리는 Output을 출력하기 위해 input에 가중치를 곱하고 편차를 더해줌으로써 Output을 구했다.
+
+CNN은 kernel이라는 하나의 filter을 이용한다.
+변수 각각에 대한 가중치를 설정하는 대신
+일정한 input 사이즈와 관계없는 일정한 크기의 가중치 행렬을 설정 한뒤,
+kernel이 input을 훑으면서 output을 계산하는 원리이다.
+따라서 이 연산은 input의 signal을 커널을 이용하여 증폭 혹은 감소 시켜주는 역할을 할 수 있다.
+
+이를 식으로 표현하면 다음과 같이 된다.
+[f*g](x) = ∫f(z)g(x-z)dz (연속함수일 경우)
+이때 f는 input을 뜻하고 g가 커널을 뜻한다.
+z가 변하면서 f와 g의 변수들을 각각 곱해주어 위에서 말한 input signal을 증폭 시키는 역할을 한다.
+
+하지만 input 사이즈와 같은 가중치 행렬을 연산하는 것 과는 달리,
+kernel 사이즈에 따라서 output의 사이즈가 바뀌는 것을 알 수 있다.
+
+이를 수학적으로 구해본다면
+입력크기(H,W), 커널크기(Kh,Kw), 출력크기(Oh,Ow) 라고 하였을때,
+
+Oh = H-Kh+1
+Ow = W-Kw+1
+
+로 output사이즈를 구할 수 있다.
+
+이러한 연산 채널이 여러개라면, 이는 더이상 2차원 행렬이 아닌 3차원 또는 그 이상의 matrix가 된다.
+이를 텐서라고 표현하며, 계산 값을 위와 동일하게 다차원에서 똑같이 계산해주면 된다.
+
+
+
+
+
+
+[RNN]
+
+
+RNN은 Recurrent Neural Network의 약자이다.
+
+기존의 Neural network가 한꺼번에 모든 input을 받아서 연산했다면, 
+RNN은 시간별로 주어지는 input에 대하여 연산해야 된다.
+
+시간별로 주어지는 input을 Sequence data라고 한다.
+소리, 문자, 주가 등등 시간에 따라서 해석이 달라지는 데이터들의 집합이다.
+이러한 데이터들을 다룰때에는 이 전의 데이터를 참고하여 추가되는 데이터를 연산하여야 하기 떄문에
+조건부확률과 베이즈 정리를 이용한다.
+
+이전에 추가된 참고하여야 되는 데이터를 Ht라 하면,
+O=Ht*W(2)+b(2)
+Ht=f(Xt*Wt+H(t-1)*W(1)+b(1)
+로 표현될 수 있다.
+
+우리는 결국 역전파를 이용하여 Loss/W를 최소화하여야 하기 때문에
+BPTT 즉, Back Propagation Through Time 기법을 이용하여야 한다.
+시간에 따라 들어오는 input과 이전에서 처리한 sequence data들의 가중치를 역전파를 이용하여 계산하는 방법이다.
+
+이때 주의할 점은 Data의 sequence가 너무 길어질 경우 이전데이터의 소실가능성이 증가하기 때문에,
+LSTM과 GRU method를 이용하여 길이를 끊어주며 데이터들을 전처리 해준다.
+
+
+
+-------Back Propagation 소스코드------------
+# 샘플 개수
+n_samples = 100
+# 시퀀스 길이
+len_sequence = 10
+# 시퀀스 생성
+X = np.zeros((n_samples, len_sequence))
+for row_idx in range(n_samples):
+    X[row_idx,:] = np.around(np.random.rand(len_sequence)).astype(int)
+# 각 시퀀스의 타겟 생성
+t = np.sum(X, axis=1)
+
+
+def update_state(xk, sk, wx, wRec):
+    return xk * wx + sk * wRec
+
+def forward_states(X, wx, wRec):
+    # 모든 input 시퀀스 X 들에 대한 상태를 담고 있는 행렬 S 초기화
+    S = np.zeros((X.shape[0], X.shape[1]+1))
+    for k in range(0, X.shape[1]):
+        # S[k] = S[k-1] * wRec + X[k] * wx
+        S[:,k+1] = update_state(X[:,k], S[:,k], wx, wRec)
+    return S
+
+def loss(y, t): 
+    return np.mean((t - y)**2)
+    
+    
+def output_gradient(y, t):
+    return 2. * (y - t)
+
+
+def backward_gradient(X, S, grad_out, wRec):
+    """
+    X: input
+    S: 모든 input 시퀀스에 대한 상태를 담고 있는 행렬
+    grad_out: output의 gradient
+    wRec: 재귀적으로 사용되는 학습 파라미터
+    """
+    # grad_over_time: loss의 state 에 대한 gradient 
+    # 초기화
+    grad_over_time = np.zeros((X.shape[0], X.shape[1]+1))
+    grad_over_time[:,-1] = grad_out
+    # gradient accumulations 초기화
+    wx_grad = 0
+    wRec_grad = 0
+    '''
+    TODO 2 SOLUTION:
+    for k in range(X.shape[1], 0, -1):
+        wx_grad += np.sum(
+            np.mean(grad_over_time[:,k] * X[:,k-1], axis=0))
+        wRec_grad += np.sum(
+            np.mean(grad_over_time[:,k] * S[:,k-1]), axis=0)
+        grad_over_time[:,k-1] = grad_over_time[:,k] * wRec
+    '''
+    return (wx_grad, wRec_grad), grad_over_time
+    
+params = [1.2, 1.2]  # [wx, wRec]
+eps = 1e-7
+S = forward_states(X, params[0], params[1])
+grad_out = output_gradient(S[:,-1], t)
+backprop_grads, grad_over_time = backward_gradient(X, S, grad_out, params[1])
+for p_idx, _ in enumerate(params):
+    grad_backprop = backprop_grads[p_idx]
+    params[p_idx] += eps
+    plus_loss = loss(forward_states(X, params[0], params[1])[:,-1], t)
+    params[p_idx] -= 2 * eps
+    min_loss = loss(forward_states(X, params[0], params[1])[:,-1], t)
+    params[p_idx] += eps
+    grad_num = (plus_loss - min_loss) / (2*eps)
+    if not np.isclose(grad_num, grad_backprop):
+        raise ValueError((
+            f'Numerical gradient of {grad_num:.6f} is not close to '
+            f'the backpropagation gradient of {grad_backprop:.6f}!'))
+print('No gradient errors found')
